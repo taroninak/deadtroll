@@ -1,46 +1,24 @@
 var Promise = require('bluebird');
-var WebSocket = require('ws');
-var request = Promise.promisifyAll(require('request'));
-var token = process.env.TOKEN;
-request.getAsync('https://slack.com/api/rtm.start?token=' + token).then(function (res) {
-    res = JSON.parse(res.body);
-    listen(res.url);
-}).catch(function (err) {
-    console.log(err);
+var express = require('express');
+
+var config = require('./config/main');
+var slack = require('./services/slack');
+var socket = require('./services/socket');
+var parrot = require('./bots/parrot');
+
+slack.rtm.start(config.token).then(function(res) {
+    socket.connect(res.url);
+    socket.on('message', function (message) {
+        setImmediate(function () {
+            parrot.dispatch(message);
+        });
+    });
 });
 
-function listen(url) {
-    var ws = new WebSocket(url);
+var app = express();
 
-    ws.on('open', function open() {
-        console.log('Connection established!');
-    });
+require('./controllers/web')(app);
 
-    ws.on('close', function close() {
-        console.log('Connection closed!');
-    });
-
-    ws.on('message', function message(data, flags) {
-        console.log('>' + data);
-        data = JSON.parse(data);
-        if(data.type == 'message') {
-            getUsername(data.user).then(function (name) {
-                var packet = {
-                    type: 'message',
-                    channel: data.channel,
-                    text: '@' + name + ' says: ' + data.text
-                };
-                ws.send(JSON.stringify(packet));
-            });
-        }
-    });
-}
-
-function getUsername(id) {
-    return request.getAsync('https://slack.com/api/users.info?token=' + token + '&user=' + id).then(function (res) {
-        res = JSON.parse(res.body);
-        return res.user.name;
-    }).catch(function(err) {
-        return id;
-    });
-}
+app.listen(config.port, config.host, function() {
+    console.log('Listening on ' + config.host + ':' + config.port);
+});
