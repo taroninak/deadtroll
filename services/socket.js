@@ -16,7 +16,13 @@ var Socket = (function () {
 
         this.ws.on('open', function open() {
             console.log('Connection established!');
-            self.timeout = setInterval(self.ping, 600000);
+            setInterval(function () {
+                self.ping();
+            }, 60000);
+
+            self.timeout = setInterval(function () {
+                self.ws.close();
+            }, 6000000);
         });
 
         this.ws.on('close', function close() {
@@ -43,6 +49,7 @@ var Socket = (function () {
     };
 
     Socket.prototype.send = function (message) {
+        if(this.ws.readyState != WebSocket.OPEN) return;
         if(typeof message == 'string') {
             this.ws.send(message);
         } else {
@@ -51,7 +58,9 @@ var Socket = (function () {
     };
 
     Socket.prototype.ping = function () {
-        this.send(JSON.stringify({id: parseInt(new Date().getTime()), type: 'ping'}));
+        if(this.ws.readyState == WebSocket.OPEN) {
+            this.ws.send(JSON.stringify({id: parseInt(new Date().getTime()), type: 'ping'}));
+        }
     };
 
     util.inherits(Socket, EventEmitter);
