@@ -1,5 +1,7 @@
 var Promise = require('bluebird');
 var express = require('express');
+var morgan = require('morgan');
+var request = require('request');
 
 var config = require('./config/main');
 var slack = require('./services/slack');
@@ -16,9 +18,13 @@ slack.rtm.start(config.token).then(function(res) {
 });
 
 var app = express();
+app.use(morgan('tiny'));
 
 require('./controllers/web')(app);
 
 app.listen(config.port, config.host, function() {
     console.log('Listening on ' + config.host + ':' + config.port);
+    setInterval(function() {
+        request(config.url);
+    }, 600000);
 });
